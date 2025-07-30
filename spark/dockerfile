@@ -1,0 +1,8 @@
+FROM jupyter/pyspark-notebook
+
+USER root
+RUN apt-get update && apt-get install -y openjdk-11-jdk
+USER jovyan
+
+# Install Delta Lake dependencies
+RUN pip install delta-spark==2.4.0
