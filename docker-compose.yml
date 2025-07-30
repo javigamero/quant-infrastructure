@@ -1,0 +1,34 @@
+services:
+  spark:
+    build: ./spark
+    container_name: spark
+    ports:
+      - "8888:8888"
+    volumes:
+      - ../qt_data:/home/jovyan/work
+    environment:
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - PYSPARK_SUBMIT_ARGS=--packages io.delta:delta-core_2.12:2.4.0,org.projectnessie:nessie-spark-extensions-3.4_2.12:0.81.1 --conf spark.sql.extensions=io.delta.sql.DeltaSparkSessionExtension,org.projectnessie.spark.extensions.NessieSparkSessionExtensions --conf spark.sql.catalog.nessie=org.projectnessie.spark.extensions.NessieCatalog --conf spark.sql.catalog.nessie.uri=http://nessie:19120/api/v1 --conf spark.sql.catalog.nessie.ref=main --conf spark.sql.catalog.nessie.authentication.type=NONE --conf spark.hadoop.fs.s3a.endpoint=http://minio:9000 --conf spark.hadoop.fs.s3a.access.key=minioadmin --conf spark.hadoop.fs.s3a.secret.key=minioadmin --conf spark.hadoop.fs.s3a.path.style.access=true --conf spark.hadoop.fs.s3a.impl=org.apache.hadoop.fs.s3a.S3AFileSystem pyspark-shell
+    depends_on:
+      - nessie
+      - minio
+
+  nessie:
+    image: projectnessie/nessie
+    container_name: nessie
+    ports:
+      - "19120:19120"
+
+  minio:
+    image: minio/minio
+    container_name: minio
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - ./minio/data:/data
+    environment:
+      - MINIO_ROOT_USER=${MINIO_ROOT_USER}
+      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}
+    command: server /data --console-address ":9001"
