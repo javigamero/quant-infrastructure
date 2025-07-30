@@ -1,3 +1,5 @@
 .env
 *env*
 
+# volume data from MinIo to persit delta files
+minio/data/
