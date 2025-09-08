@@ -5,9 +5,13 @@ services:
     ports:
       - "8888:8888"
     volumes:
-      - ../qt_data:/home/jovyan/work
+      - ../qt_data:/home/jovyan/work # map the scripts root dir to the container as a volume to persist scripts changes
     environment:
-      PYSPARK_SUBMIT_ARGS: "--repositories https://packages.databricks.com/repo/ --packages io.delta:delta-core_2.12:2.4.0,org.apache.hadoop:hadoop-aws:3.3.2,org.postgresql:postgresql:42.7.3 pyspark-shell"
+      PYSPARK_SUBMIT_ARGS: "--repositories https://packages.databricks.com/repo/ 
+                            --packages io.delta:delta-core_2.12:2.4.0,\
+                                       org.apache.hadoop:hadoop-aws:3.3.2,\
+                                       org.postgresql:postgresql:42.7.3 
+                            pyspark-shell"
       MINIO_ROOT_USER: ${MINIO_ROOT_USER}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
       POSTGRES_USER: ${POSTGRES_USER}
@@ -15,7 +19,7 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_HOST: ${POSTGRES_HOST}
       POSTGRES_PORT: ${POSTGRES_PORT}
-      ALPHA_VANTAGE_API_KEY: ${ALPHA_VANTAGE_API_KEY}
+      ALPHA_VANTAGE_API_KEY: ${ALPHA_VANTAGE_API_KEY} # apikey to extract stock data
     depends_on:
       - minio
 
@@ -26,11 +30,11 @@ services:
       - "9000:9000"
       - "9001:9001"
     volumes:
-      - ./minio/data:/data
+      - ./minio/data:/data # map from current dir minio/data to container /data to persist data
     environment:
       - MINIO_ROOT_USER=${MINIO_ROOT_USER}
       - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}
-    command: server /data --console-address ":9001"
+    command: server /data --console-address ":9001" # start minio pointing to /data dir and set port 9001 for the web console
 
   db:
     image: postgres:16
