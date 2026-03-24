@@ -7,4 +7,4 @@ deltalake/silver/
 deltalake/gold/
 
 # volume postgres data to persist database data
-postgres/data/
+*/postgres/data/
