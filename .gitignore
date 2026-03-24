@@ -1,8 +1,10 @@
 .env
 *env*
 
-# volume data from MinIo to persit delta files
-minio/data/
+# volume data persit delta files
+deltalake/bronze/
+deltalake/silver/
+deltalake/gold/
 
-# postgres data to persist database
+# volume postgres data to persist database data
 postgres/data/
