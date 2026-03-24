@@ -1,7 +1,10 @@
 services:
   spark:
-    build: ./spark
-    container_name: qt_spark
+    image: jupyter/pyspark:1.0.0 # add new image naming 
+    container_name: 'quant-jupyter-spark'
+    build: 
+      context: .
+      dockerfile: services/spark/Dockerfile
     ports:
       - "8888:8888"
     volumes:
