@@ -18,6 +18,7 @@ services:
       POSTGRES_HOST: ${POSTGRES_HOST}
       POSTGRES_PORT: ${POSTGRES_PORT}
       ALPHA_VANTAGE_API_KEY: ${ALPHA_VANTAGE_API_KEY} # apikey to extract stock data
+      ALPACA_API_KEY: ${ALPACA_API_KEY} # apikey to extract stock data
 
   db:
     image: postgres:16
