@@ -8,4 +8,8 @@ USER jovyan
 
 # Install Delta Lake dependencies
 COPY ./requirements.txt /tmp/requirements.txt
-RUN pip install --no-cache-dir -r /tmp/requirements.txt
+RUN pip install --no-cache-dir -r /tmp/requirements.txt \ 
+    && rm -rf /tmp/requirements.txt
+
+# keep the container running for interactive use
+ENTRYPOINT ["tail", "-f", "/dev/null"] 
