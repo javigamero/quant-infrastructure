@@ -2,10 +2,10 @@
 .env/
 
 # volume data persit delta files
-# deltalake/bronze/*
-# deltalake/silver/*
-# deltalake/gold/*
-# deltalake/models/*
+deltalake/bronze/*
+deltalake/silver/*
+deltalake/gold/*
+deltalake/models/*
 
 
 # volume postgres data to persist database data
