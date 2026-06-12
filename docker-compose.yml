@@ -1,45 +1,19 @@
+name: quant-infrastructure
+
+networks:
+  quant-net:
+    driver: bridge
+
+volumes:
+  timescaledb_data:
+  unitycatalog_data:
+  airflow_db_data:
+
 services:
-  spark:
-    build: ./spark
-    container_name: qt_spark
-    ports:
-      - "8888:8888"
-    volumes:
-      - ../qt_data:/home/jovyan/work # map the scripts root dir to the container as a volume to persist scripts changes
-    environment:
-      PYSPARK_SUBMIT_ARGS: "--repositories https://packages.databricks.com/repo/ 
-                            --packages io.delta:delta-core_2.12:2.4.0,\
-                                       org.apache.hadoop:hadoop-aws:3.3.2,\
-                                       org.postgresql:postgresql:42.7.3 
-                            pyspark-shell"
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_HOST: ${POSTGRES_HOST}
-      POSTGRES_PORT: ${POSTGRES_PORT}
-      ALPHA_VANTAGE_API_KEY: ${ALPHA_VANTAGE_API_KEY} # apikey to extract stock data
-    depends_on:
-      - minio
 
-  minio:
-    image: minio/minio:RELEASE.2025-07-23T15-54-02Z
-    container_name: qt_minio
-    ports:
-      - "9000:9000"
-      - "9001:9001"
-    volumes:
-      - ./minio/data:/data # map from current dir minio/data to container /data to persist data
-    environment:
-      - MINIO_ROOT_USER=${MINIO_ROOT_USER}
-      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}
-    command: server /data --console-address ":9001" # start minio pointing to /data dir and set port 9001 for the web console
-
-  db:
-    image: postgres:16
-    container_name: qt_postgres
-    restart: always
+  timescaledb:
+    image: timescale/timescaledb:latest-pg14
+    container_name: quant-timescaledb
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -47,93 +21,141 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - ./postgres/data:/var/lib/postgresql/data
+      - timescaledb_data:/var/lib/postgresql/data
+      - ./services/timescaledb/init:/docker-entrypoint-initdb.d:ro
+    networks:
+      - quant-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
 
-  # redis:
-  #   image: redis:7
-  #   container_name: qt_redis
-  #   ports:
-  #     - "6379:6379"
+  unitycatalog:
+    image: unitycatalog/unitycatalog:main
+    container_name: quant-unitycatalog
+    ports:
+      - "8081:8080"
+    volumes:
+      - unitycatalog_data:/opt/unitycatalog/etc
+    networks:
+      - quant-net
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/api/2.1/unity-catalog/catalogs"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
 
-  # airflow-webserver:
-  #   image: apache/airflow:2.9.1
-  #   container_name: qt_airflow_web
-  #   restart: always
-  #   depends_on:
-  #     - db
-  #     - redis
-  #   environment:
-  #     AIRFLOW__CORE__EXECUTOR: CeleryExecutor
-  #     AIRFLOW__CORE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
-  #     AIRFLOW__CELERY__BROKER_URL: redis://redis:6379/0
-  #     AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
-  #     AIRFLOW__CORE__FERNET_KEY: ${AIRFLOW_FERNET_KEY}
-  #     AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
-  #     AIRFLOW__WEBSERVER__SECRET_KEY: ${AIRFLOW_SECRET_KEY}
-  #     _AIRFLOW_WWW_USER_USERNAME: admin
-  #     _AIRFLOW_WWW_USER_PASSWORD: admin
-  #   ports:
-  #     - "8080:8080"
-  #   volumes:
-  #     - ./airflow/dags:/opt/airflow/dags
-  #     - ./airflow/logs:/opt/airflow/logs
-  #     - ./airflow/plugins:/opt/airflow/plugins
-  #   command: >
-  #     bash -c "airflow db upgrade &&
-  #              airflow users create --username admin --password admin --firstname Admin --lastname User --role Admin --email admin@example.com || true &&
-  #              airflow webserver"
+  unitycatalog-init:
+    image: alpine/curl:latest
+    container_name: quant-unitycatalog-init
+    volumes:
+      - ./services/unitycatalog/init.sh:/init.sh:ro
+    networks:
+      - quant-net
+    depends_on:
+      unitycatalog:
+        condition: service_healthy
+    command: sh /init.sh
+    restart: "no"
 
-  # airflow-scheduler:
-  #   image: apache/airflow:2.9.1
-  #   container_name: qt_airflow_scheduler
-  #   restart: always
-  #   depends_on:
-  #     - airflow-webserver
-  #   environment:
-  #     AIRFLOW__CORE__EXECUTOR: CeleryExecutor
-  #     AIRFLOW__CORE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
-  #     AIRFLOW__CELERY__BROKER_URL: redis://redis:6379/0
-  #     AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
-  #     AIRFLOW__CORE__FERNET_KEY: ${AIRFLOW_FERNET_KEY}
-  #     AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
-  #   volumes:
-  #     - ./airflow/dags:/opt/airflow/dags
-  #     - ./airflow/logs:/opt/airflow/logs
-  #     - ./airflow/plugins:/opt/airflow/plugins
-  #   command: airflow scheduler
+  spark:
+    build:
+      context: .
+      dockerfile: services/spark/Dockerfile
+    container_name: quant-jupyter-spark
+    env_file: .env
+    environment:
+      PYSPARK_SUBMIT_ARGS: >-
+        --packages io.delta:delta-core_2.12:2.4.0,io.unitycatalog:unitycatalog-spark_2.12:0.2.0,org.postgresql:postgresql:42.7.3
+        pyspark-shell
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_HOST: ${POSTGRES_HOST}
+      POSTGRES_PORT: ${POSTGRES_PORT}
+      UNITY_CATALOG_URI: http://unitycatalog:8080
+      ALPHA_VANTAGE_API_KEY: ${ALPHA_VANTAGE_API_KEY}
+      APCA-API-KEY-ID: ${APCA-API-KEY-ID}
+      APCA-API-SECRET-KEY: ${APCA-API-SECRET-KEY}
+    ports:
+      - "8888:8888"
+    volumes:
+      - ../quant-platform:/home/jovyan/work
+    networks:
+      - quant-net
+    depends_on:
+      timescaledb:
+        condition: service_healthy
+      unitycatalog:
+        condition: service_healthy
+    restart: unless-stopped
 
-  # airflow-worker:
-  #   image: apache/airflow:2.9.1
-  #   container_name: qt_airflow_worker
-  #   restart: always
-  #   depends_on:
-  #     - airflow-webserver
-  #   environment:
-  #     AIRFLOW__CORE__EXECUTOR: CeleryExecutor
-  #     AIRFLOW__CORE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
-  #     AIRFLOW__CELERY__BROKER_URL: redis://redis:6379/0
-  #     AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
-  #     AIRFLOW__CORE__FERNET_KEY: ${AIRFLOW_FERNET_KEY}
-  #     AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
-  #   volumes:
-  #     - ./airflow/dags:/opt/airflow/dags
-  #     - ./airflow/logs:/opt/airflow/logs
-  #     - ./airflow/plugins:/opt/airflow/plugins
-  #   command: airflow celery worker
+  airflow-db:
+    image: postgres:14-alpine
+    container_name: quant-airflow-db
+    environment:
+      POSTGRES_USER: ${AIRFLOW_DB_USER}
+      POSTGRES_PASSWORD: ${AIRFLOW_DB_PASSWORD}
+      POSTGRES_DB: ${AIRFLOW_DB_NAME}
+    volumes:
+      - airflow_db_data:/var/lib/postgresql/data
+    networks:
+      - quant-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${AIRFLOW_DB_USER} -d ${AIRFLOW_DB_NAME}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped
 
-  # airflow-flower:
-  #   image: apache/airflow:2.9.1
-  #   container_name: qt_airflow_flower
-  #   restart: always
-  #   depends_on:
-  #     - airflow-webserver
-  #   environment:
-  #     AIRFLOW__CORE__EXECUTOR: CeleryExecutor
-  #     AIRFLOW__CORE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
-  #     AIRFLOW__CELERY__BROKER_URL: redis://redis:6379/0
-  #     AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
-  #     AIRFLOW__CORE__FERNET_KEY: ${AIRFLOW_FERNET_KEY}
-  #     AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
-  #   ports:
-  #     - "5555:5555"
-  #   command: airflow celery flower
+  airflow-webserver:
+    build:
+      context: .
+      dockerfile: services/airflow/Dockerfile
+    container_name: quant-airflow-webserver
+    env_file: .env
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${AIRFLOW_DB_USER}:${AIRFLOW_DB_PASSWORD}@airflow-db:5432/${AIRFLOW_DB_NAME}
+      AIRFLOW__CORE__FERNET_KEY: ${AIRFLOW_FERNET_KEY}
+      AIRFLOW__WEBSERVER__SECRET_KEY: ${AIRFLOW_SECRET_KEY}
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+    command: webserver
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./services/airflow/dags:/opt/airflow/dags
+    networks:
+      - quant-net
+    depends_on:
+      airflow-db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  airflow-scheduler:
+    build:
+      context: .
+      dockerfile: services/airflow/Dockerfile
+    container_name: quant-airflow-scheduler
+    env_file: .env
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${AIRFLOW_DB_USER}:${AIRFLOW_DB_PASSWORD}@airflow-db:5432/${AIRFLOW_DB_NAME}
+      AIRFLOW__CORE__FERNET_KEY: ${AIRFLOW_FERNET_KEY}
+      AIRFLOW__WEBSERVER__SECRET_KEY: ${AIRFLOW_SECRET_KEY}
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+    command: scheduler
+    volumes:
+      - ./services/airflow/dags:/opt/airflow/dags
+    networks:
+      - quant-net
+    depends_on:
+      airflow-db:
+        condition: service_healthy
+    restart: unless-stopped

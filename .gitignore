@@ -1,8 +1,18 @@
 .env
-*env*
 
-# volume data from MinIo to persit delta files
-minio/data/
+# Volume data (written by Docker, never commit)
+services/timescaledb/data/
+services/airflow/logs/
+services/airflow/data/
 
-# postgres data to persist database
-postgres/data/
+# Delta Lake layers (if written locally outside Docker)
+deltalake/bronze/
+deltalake/silver/
+deltalake/gold/
+deltalake/models/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
