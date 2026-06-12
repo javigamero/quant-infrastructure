@@ -45,18 +45,20 @@ spark = (
     .appName("...")
     .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension")
     .config("spark.sql.catalog.spark_catalog", "org.apache.spark.sql.delta.catalog.DeltaCatalog")
-    .config("spark.sql.catalog.unity", "io.unitycatalog.connectors.spark.UCSingleCatalog")
-    .config("spark.sql.catalog.unity.uri", "http://unitycatalog:8080")
-    .config("spark.sql.catalog.unity.token", "")
+    .config("spark.sql.catalog.lakehouse", "io.unitycatalog.connectors.spark.UCSingleCatalog")
+    .config("spark.sql.catalog.lakehouse.uri", "http://unitycatalog:8080")
+    .config("spark.sql.catalog.lakehouse.token", "")
     .getOrCreate()
 )
 ```
 
+Tables are referenced as `lakehouse.bronze.<table>`, `lakehouse.silver.<table>`, `lakehouse.gold.<table>`.
+
 ### Storage - Unity Catalog & TimescaleDB
 * **Unity Catalog** (`services/unitycatalog/`) — open-source Delta Lake catalog.
-  Manages bronze/silver/gold schemas. Data persisted to `unitycatalog_data` named volume.
+  Manages `lakehouse` catalog with bronze/silver/gold schemas. Data persisted to `unitycatalog_data` named volume.
   Accessible at `http://localhost:8081` (UI) and `http://unitycatalog:8080` (internal API).
-  After first start, create the catalog and schemas via the UI or REST API.
+  The `unitycatalog-init` one-shot container runs `services/unitycatalog/init.sh` on first start to create the catalog and schemas automatically.
 * **TimescaleDB** (`services/timescaledb/`) — time-series storage for final app consumption.
   Schemas `market_data` and `analytics` are created by `services/timescaledb/init/01-init.sql`.
   Connect via `psql -h localhost -U $POSTGRES_USER -d $POSTGRES_DB`.
