@@ -50,6 +50,19 @@ services:
       start_period: 30s
     restart: unless-stopped
 
+  unitycatalog-init:
+    image: alpine/curl:latest
+    container_name: quant-unitycatalog-init
+    volumes:
+      - ./services/unitycatalog/init.sh:/init.sh:ro
+    networks:
+      - quant-net
+    depends_on:
+      unitycatalog:
+        condition: service_healthy
+    command: sh /init.sh
+    restart: "no"
+
   spark:
     build:
       context: .
