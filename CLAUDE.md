@@ -83,4 +83,4 @@ docker compose exec airflow-webserver \
 * `AIRFLOW_DB_USER / AIRFLOW_DB_PASSWORD / AIRFLOW_DB_NAME`
 * `AIRFLOW_FERNET_KEY / AIRFLOW_SECRET_KEY`
 * `ALPHA_VANTAGE_API_KEY` — Alpha Vantage stock data API
-* `ALPACA_API_KEY` — Alpaca markets API
+* `APCA-API-KEY-ID` / `APCA-API-SECRET-KEY` — Alpaca markets API key ID and secret

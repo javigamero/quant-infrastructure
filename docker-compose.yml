@@ -80,7 +80,8 @@ services:
       POSTGRES_PORT: ${POSTGRES_PORT}
       UNITY_CATALOG_URI: http://unitycatalog:8080
       ALPHA_VANTAGE_API_KEY: ${ALPHA_VANTAGE_API_KEY}
-      ALPACA_API_KEY: ${ALPACA_API_KEY}
+      APCA-API-KEY-ID: ${APCA-API-KEY-ID}
+      APCA-API-SECRET-KEY: ${APCA-API-SECRET-KEY}
     ports:
       - "8888:8888"
     volumes:
