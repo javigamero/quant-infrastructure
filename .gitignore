@@ -1,12 +1,18 @@
 .env
-.env/
 
-# volume data persit delta files
-deltalake/bronze/*
-deltalake/silver/*
-deltalake/gold/*
-deltalake/models/*
+# Volume data (written by Docker, never commit)
+services/timescaledb/data/
+services/airflow/logs/
+services/airflow/data/
 
+# Delta Lake layers (if written locally outside Docker)
+deltalake/bronze/
+deltalake/silver/
+deltalake/gold/
+deltalake/models/
 
-# volume postgres data to persist database data
-*/postgres/data/
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/

@@ -1,15 +1,15 @@
 FROM jupyter/pyspark-notebook:spark-3.4.0
 
 USER root
-RUN apt-get update && apt-get install -y openjdk-11-jdk
+RUN apt-get update && apt-get install -y --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/*
 
-# not to run as root anything else
 USER jovyan
 
-# Install Delta Lake dependencies
-COPY ./requirements.txt /tmp/requirements.txt
-RUN pip install --no-cache-dir -r /tmp/requirements.txt \ 
-    && rm -rf /tmp/requirements.txt
+RUN pip install --no-cache-dir \
+    --index-url https://download.pytorch.org/whl/cpu \
+    torch==2.2.2
 
-# keep the container running for interactive use
-ENTRYPOINT ["tail", "-f", "/dev/null"] 
+COPY services/spark/requirements.txt /tmp/requirements.txt
+RUN pip install --no-cache-dir -r /tmp/requirements.txt \
+    && rm /tmp/requirements.txt
