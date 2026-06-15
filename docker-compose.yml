@@ -39,15 +39,29 @@ services:
     ports:
       - "8081:8080"
     volumes:
-      - unitycatalog_data:/opt/unitycatalog/etc
+      - unitycatalog_data:/home/unitycatalog/etc
     networks:
-      - quant-net
+      quant-net:
+        aliases:
+          - server
     healthcheck:
-      test: ["CMD", "curl", "--fail", "http://localhost:8080/api/2.1/unity-catalog/catalogs"]
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/api/2.1/unity-catalog/catalogs"]
       interval: 15s
       timeout: 5s
       retries: 5
       start_period: 30s
+    restart: unless-stopped
+
+  unitycatalog-ui:
+    image: unitycatalog/unitycatalog-ui:main
+    container_name: quant-unitycatalog-ui
+    ports:
+      - "3000:3000"
+    networks:
+      - quant-net
+    depends_on:
+      unitycatalog:
+        condition: service_healthy
     restart: unless-stopped
 
   unitycatalog-init:
@@ -114,6 +128,28 @@ services:
       start_period: 20s
     restart: unless-stopped
 
+  airflow-init:
+    build:
+      context: .
+      dockerfile: services/airflow/Dockerfile
+    container_name: quant-airflow-init
+    env_file: .env
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${AIRFLOW_DB_USER}:${AIRFLOW_DB_PASSWORD}@airflow-db:5432/${AIRFLOW_DB_NAME}
+      AIRFLOW__CORE__FERNET_KEY: ${AIRFLOW_FERNET_KEY}
+      AIRFLOW__WEBSERVER__SECRET_KEY: ${AIRFLOW_SECRET_KEY}
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+    command: bash /init.sh
+    volumes:
+      - ./services/airflow/init.sh:/init.sh:ro
+    networks:
+      - quant-net
+    depends_on:
+      airflow-db:
+        condition: service_healthy
+    restart: "no"
+
   airflow-webserver:
     build:
       context: .
@@ -134,8 +170,8 @@ services:
     networks:
       - quant-net
     depends_on:
-      airflow-db:
-        condition: service_healthy
+      airflow-init:
+        condition: service_completed_successfully
     restart: unless-stopped
 
   airflow-scheduler:
@@ -156,6 +192,6 @@ services:
     networks:
       - quant-net
     depends_on:
-      airflow-db:
-        condition: service_healthy
+      airflow-init:
+        condition: service_completed_successfully
     restart: unless-stopped
