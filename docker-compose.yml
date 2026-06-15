@@ -39,15 +39,29 @@ services:
     ports:
       - "8081:8080"
     volumes:
-      - unitycatalog_data:/opt/unitycatalog/etc
+      - unitycatalog_data:/home/unitycatalog/etc
     networks:
-      - quant-net
+      quant-net:
+        aliases:
+          - server
     healthcheck:
-      test: ["CMD", "curl", "--fail", "http://localhost:8080/api/2.1/unity-catalog/catalogs"]
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/api/2.1/unity-catalog/catalogs"]
       interval: 15s
       timeout: 5s
       retries: 5
       start_period: 30s
+    restart: unless-stopped
+
+  unitycatalog-ui:
+    image: unitycatalog/unitycatalog-ui:main
+    container_name: quant-unitycatalog-ui
+    ports:
+      - "3000:3000"
+    networks:
+      - quant-net
+    depends_on:
+      unitycatalog:
+        condition: service_healthy
     restart: unless-stopped
 
   unitycatalog-init:
