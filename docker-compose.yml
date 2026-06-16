@@ -100,6 +100,7 @@ services:
       - "8888:8888"
     volumes:
       - ../quant-platform:/home/jovyan/work
+      - ./tests/pyspark:/home/jovyan/infra-tests:ro
     networks:
       - quant-net
     depends_on:
@@ -107,6 +108,12 @@ services:
         condition: service_healthy
       unitycatalog:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8888/api"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
     restart: unless-stopped
 
   airflow-db:
@@ -189,6 +196,9 @@ services:
     command: scheduler
     volumes:
       - ./services/airflow/dags:/opt/airflow/dags
+      - /var/run/docker.sock:/var/run/docker.sock
+    group_add:
+      - "${DOCKER_GID:-999}"
     networks:
       - quant-net
     depends_on:
