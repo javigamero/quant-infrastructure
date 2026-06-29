@@ -108,6 +108,11 @@ services:
         condition: service_healthy
       unitycatalog:
         condition: service_healthy
+      # Wait for the catalog/schemas to be created before Spark starts. This also
+      # tells `docker compose up --wait` that this one-shot container is expected
+      # to exit, so its clean exit (0) is not treated as a stack failure.
+      unitycatalog-init:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "curl", "-sf", "http://localhost:8888/api"]
       interval: 30s
