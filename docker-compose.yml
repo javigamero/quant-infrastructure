@@ -185,6 +185,15 @@ services:
     depends_on:
       airflow-init:
         condition: service_completed_successfully
+    # Without a healthcheck, `docker compose up --wait` only waits for the
+    # container to start, not for gunicorn to serve — smoke tests then hit the
+    # API before it is ready. This blocks --wait until the webserver responds.
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
     restart: unless-stopped
 
   airflow-scheduler:
