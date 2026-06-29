@@ -62,6 +62,14 @@ docker exec quant-jupyter-spark \
 echo ""
 echo "==> Layer 3: Airflow → Spark DAG test"
 
+# Unpause the DAG — a paused DAG accepts triggers but the scheduler never runs them
+echo "  Unpausing DAG '${DAG_ID}'..."
+curl -sf -X PATCH \
+  -u "${AIRFLOW_AUTH}" \
+  -H "Content-Type: application/json" \
+  -d '{"is_paused": false}' \
+  "${AIRFLOW_API}/dags/${DAG_ID}" > /dev/null
+
 # Trigger the DAG
 echo "  Triggering DAG '${DAG_ID}'..."
 run_id=$(curl -sf -X POST \
