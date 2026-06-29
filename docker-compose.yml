@@ -85,7 +85,7 @@ services:
     env_file: .env
     environment:
       PYSPARK_SUBMIT_ARGS: >-
-        --packages io.delta:delta-core_2.12:2.4.0,io.unitycatalog:unitycatalog-spark_2.12:0.2.0,org.postgresql:postgresql:42.7.3
+        --packages io.delta:delta-spark_2.12:3.2.1,io.unitycatalog:unitycatalog-spark_2.12:0.2.0,org.postgresql:postgresql:42.7.3
         pyspark-shell
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
