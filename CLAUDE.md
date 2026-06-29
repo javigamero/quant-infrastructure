@@ -15,7 +15,7 @@ Not yet implemented. Currently designing and building Docker images.
 
 | Service | Image | Port | Purpose |
 |---|---|---|---|
-| `spark` | custom (pyspark-notebook:spark-3.4.0) | 8888 | Jupyter + PySpark + ML libs |
+| `spark` | custom (pyspark-notebook:spark-3.5.3) | 8888 | Jupyter + PySpark + ML libs |
 | `unitycatalog` | unitycatalog/unitycatalog:main | 8081 | Delta Lake catalog (bronze/silver/gold) |
 | `timescaledb` | timescale/timescaledb:latest-pg14 | 5432 | Time-series storage |
 | `airflow-db` | postgres:14-alpine | internal | Airflow metadata DB |
@@ -25,27 +25,34 @@ Not yet implemented. Currently designing and building Docker images.
 ## Docker services
 
 ### Programming - Spark & Python
-`services/spark/Dockerfile` — extends `jupyter/pyspark-notebook:spark-3.4.0`.
+`services/spark/Dockerfile` — extends `quay.io/jupyter/pyspark-notebook:spark-3.5.3`.
+The bundled pyspark (matching the Spark distribution and JVM) is exposed via `PYTHONPATH`;
+`delta-spark` is installed `--no-deps` so pip does not rebuild pyspark from its sdist.
 
 Python libraries installed via `services/spark/requirements.txt`:
-* `delta-spark==2.4.0`
 * `scikit-learn==1.4.2`
-* `torch==2.2.2` (CPU-only, installed via PyTorch index URL)
 * `psycopg2-binary==2.9.9`
+* `pytest==8.2.2`
+
+Also installed in the Dockerfile: `delta-spark==3.2.1` (`--no-deps`) and `torch==2.2.2` (CPU-only, PyTorch index URL).
 
 JVM packages injected at Spark submit time via `PYSPARK_SUBMIT_ARGS`:
-* `io.delta:delta-core_2.12:2.4.0`
+* `io.delta:delta-spark_2.12:3.2.1` (requires Spark 3.5.3)
 * `io.unitycatalog:unitycatalog-spark_2.12:0.2.0`
 * `org.postgresql:postgresql:42.7.3`
 
-SparkSession pattern to connect to Unity Catalog:
+SparkSession pattern to connect to Unity Catalog — both `spark_catalog` and `lakehouse`
+must use `UCSingleCatalog`, otherwise table creation falls back to Spark's session catalog
+and fails with a misleading `SCHEMA_NOT_FOUND`:
 ```python
 spark = (
     SparkSession.builder
     .appName("...")
     .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension")
-    .config("spark.sql.catalog.spark_catalog", "org.apache.spark.sql.delta.catalog.DeltaCatalog")
-    .config("spark.sql.catalog.lakehouse", "io.unitycatalog.connectors.spark.UCSingleCatalog")
+    .config("spark.sql.catalog.spark_catalog", "io.unitycatalog.spark.UCSingleCatalog")
+    .config("spark.sql.catalog.spark_catalog.uri", "http://unitycatalog:8080")
+    .config("spark.sql.catalog.spark_catalog.token", "")
+    .config("spark.sql.catalog.lakehouse", "io.unitycatalog.spark.UCSingleCatalog")
     .config("spark.sql.catalog.lakehouse.uri", "http://unitycatalog:8080")
     .config("spark.sql.catalog.lakehouse.token", "")
     .getOrCreate()
@@ -53,6 +60,8 @@ spark = (
 ```
 
 Tables are referenced as `lakehouse.bronze.<table>`, `lakehouse.silver.<table>`, `lakehouse.gold.<table>`.
+The OSS connector supports **external** Delta tables only — always write with an explicit
+`LOCATION` / `.option("path", ...)`; managed tables (`saveAsTable` without a location) are not supported.
 
 ### Storage - Unity Catalog & TimescaleDB
 * **Unity Catalog** (`services/unitycatalog/`) — open-source Delta Lake catalog.

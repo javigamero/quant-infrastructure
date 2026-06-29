@@ -1,4 +1,4 @@
-FROM jupyter/pyspark-notebook:spark-3.4.0
+FROM quay.io/jupyter/pyspark-notebook:spark-3.5.3
 
 USER root
 RUN apt-get update && apt-get install -y --no-install-recommends curl \
@@ -6,10 +6,19 @@ RUN apt-get update && apt-get install -y --no-install-recommends curl \
 
 USER jovyan
 
+# Expose the bundled pyspark (matches the Spark distribution and JVM exactly) to
+# the conda Python so `import pyspark` works under plain `python`/pytest.
+ENV PYTHONPATH="${SPARK_HOME}/python:${SPARK_HOME}/python/lib/py4j-0.10.9.7-src.zip"
+
 RUN pip install --no-cache-dir \
     --index-url https://download.pytorch.org/whl/cpu \
     torch==2.2.2
 
-COPY services/spark/requirements.txt /tmp/requirements.txt
+# Install delta-spark without dependencies so pip does not rebuild pyspark from
+# its 317 MB sdist — the base image already ships a matching pyspark via
+# SPARK_HOME, and the Delta JVM jars are injected at submit time.
+RUN pip install --no-cache-dir --no-deps delta-spark==3.2.1
+
+COPY --chown=jovyan:users services/spark/requirements.txt /tmp/requirements.txt
 RUN pip install --no-cache-dir -r /tmp/requirements.txt \
     && rm /tmp/requirements.txt
