@@ -51,6 +51,10 @@ The setup targets local development, with cloud scalability in mind.
    | Airflow | http://localhost:8080 |
    | TimescaleDB | `localhost:5432` |
 
+   For detailed instructions on how to access and connect to each resource
+   (credentials, internal vs. host endpoints, CLI commands), see
+   [docs/local-access.md](docs/local-access.md).
+
 6. Access your workspace:
    Jupyter notebooks are available from the `../quant-platform` directory,
    mounted as `/home/jovyan/work` inside the Spark container.
