@@ -23,13 +23,15 @@ jobs:
 
       - name: Generate .env from example
         run: |
+          # CI uses the example defaults as-is — these are throwaway credentials
+          # for an ephemeral stack that is torn down at the end of the run, so no
+          # repository secrets are required.
           cp .env.example .env
-          # Overwrite secrets with CI values from repository secrets
-          sed -i "s|changeme_postgres|${{ secrets.POSTGRES_PASSWORD }}|" .env
-          sed -i "s|changeme_airflow_db|${{ secrets.AIRFLOW_DB_PASSWORD }}|" .env
-          sed -i "s|changeme_generate_with_fernet|${{ secrets.AIRFLOW_FERNET_KEY }}|" .env
-          sed -i "s|changeme_airflow_secret|${{ secrets.AIRFLOW_SECRET_KEY }}|" .env
-          sed -i "s|changeme_airflow_admin|${{ secrets.AIRFLOW_ADMIN_PASSWORD }}|" .env
+          # A valid Fernet key is required for Airflow to boot — the placeholder
+          # in .env.example is not a real key. Generate one with the stdlib only
+          # (32 random bytes, url-safe base64) to avoid a cryptography dependency.
+          FERNET_KEY=$(python3 -c "import os, base64; print(base64.urlsafe_b64encode(os.urandom(32)).decode())")
+          sed -i "s|changeme_generate_with_fernet|${FERNET_KEY}|" .env
           # Discover docker group GID on the runner
           echo "DOCKER_GID=$(getent group docker | cut -d: -f3)" >> .env
 
