@@ -7,6 +7,10 @@ networks:
 volumes:
   timescaledb_data:
   unitycatalog_data:
+  # Table files of the external Delta tables registered in Unity Catalog. The catalog
+  # stores one absolute location per table, so this volume must stay mounted at the same
+  # path in every container that reads or writes the lakehouse.
+  lakehouse_data:
   airflow_db_data:
 
 services:
@@ -93,6 +97,8 @@ services:
       POSTGRES_HOST: ${POSTGRES_HOST}
       POSTGRES_PORT: ${POSTGRES_PORT}
       UNITY_CATALOG_URI: http://unitycatalog:8080
+      UNITY_CATALOG_NAME: lakehouse
+      LAKEHOUSE_ROOT: /data/lake
       ALPHA_VANTAGE_API_KEY: ${ALPHA_VANTAGE_API_KEY}
       APCA-API-KEY-ID: ${APCA-API-KEY-ID}
       APCA-API-SECRET-KEY: ${APCA-API-SECRET-KEY}
@@ -101,6 +107,7 @@ services:
     volumes:
       - ../quant-platform:/home/jovyan/work
       - ./tests/pyspark:/home/jovyan/infra-tests:ro
+      - lakehouse_data:/data/lake
     networks:
       - quant-net
     depends_on:
