@@ -4,6 +4,11 @@ USER root
 RUN apt-get update && apt-get install -y --no-install-recommends curl \
     && rm -rf /var/lib/apt/lists/*
 
+# Mount point of the `lakehouse_data` volume (LAKEHOUSE_ROOT). Docker copies the
+# image directory's ownership onto a *newly created, empty* named volume, so this
+# is what lets jovyan (uid 1000) create the bronze/silver/gold table directories.
+RUN mkdir -p /data/lake && chown jovyan:users /data/lake && chmod 775 /data/lake
+
 USER jovyan
 
 # Expose the bundled pyspark (matches the Spark distribution and JVM exactly) to
