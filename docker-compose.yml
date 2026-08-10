@@ -104,7 +104,7 @@ services:
     volumes:
       - ../quant-platform:/home/jovyan/work
       - ./tests/pyspark:/home/jovyan/infra-tests:ro
-      - lakehouse_data:/data/lake # lives in docker linux vm the volume
+      - ./lakehouse:/data/lake
     networks:
       - quant-net
     depends_on:
